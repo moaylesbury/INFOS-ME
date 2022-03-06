@@ -47,9 +47,9 @@ public:
 	void add_to_runqueue(SchedulingEntity& entity) override
 	{
 		UniqueIRQLock l;
-        if (entity.priority() == SchedulingEntityPriority::REALTIME){
-            sched_log.messagef(LogLevel::ERROR, "HELLOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO");
-        }
+        // if (entity.priority() == SchedulingEntityPriority::REALTIME){
+        //     sched_log.messagef(LogLevel::ERROR, "HELLOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO");
+        // }
 		runqueue.enqueue(&entity);
 	}
 
@@ -69,6 +69,14 @@ public:
     {
         UniqueIRQLock l;
         p1.append(entity);
+    }
+
+    void rm_from_p1(SchedulingEntity* entity)
+    {
+        if (p1.count() != 0){
+            UniqueIRQLock l;
+            p1.remove(entity);
+        }
     }
 
     SchedulingEntity* get_at(int ptr)
@@ -103,6 +111,9 @@ public:
         //     sched_log.messagef(LogLevel::DEBUG, "me happi:)");
         // }
 
+        //print int
+        // syslog.messagef(LogLevel::FATAL, "runqueue count - %s", ToString(runqueue.count()).c_str());
+
 
         if (begin) {
             sched_log.messagef(LogLevel::DEBUG, "begin");
@@ -113,10 +124,12 @@ public:
             auto test = SchedulingEntityPriority::REALTIME;
             auto st = SchedulingEntityState::RUNNABLE;
             for (const auto& entity : runqueue) {
+                syslog.messagef(LogLevel::FATAL, "runqueue count - %s", ToString(runqueue.count()).c_str());
                 if (p1.count() == 0){
                     sched_log.messagef(LogLevel::DEBUG, "first step correct");
                 }
-                if (entity->priority() == test){
+                syslog.messagef(LogLevel::FATAL, "priority level - %s", ToString(entity->priority()).c_str());
+                if (entity->priority() == 2){
                     sched_log.messagef(LogLevel::FATAL, "HELLOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO");
                 }
                 if (entity->priority()) {
@@ -135,21 +148,22 @@ public:
 
             begin = false;
         }
-
+        // return NULL;
 
         // if (p1.count() != 0) { sched_log.messagef(LogLevel::DEBUG, "me oh so happi"); }
         // if (p1.count() != 0) { sched_log.messagef(LogLevel::DEBUG, "me oh so happi"); }
         // Round-Robin
 
         
+        
 
 
-
-        while (true) {
+        while (true && p1.count() > 0) {
 
             // get entity at pointer
             auto ent = MultipleQueuePriorityScheduler::get_at(q_pointer);
-            sched_log.messagef(LogLevel::DEBUG, "not bronk");
+            // syslog.messagef(LogLevel::DEBUG, "name - %s", ent->name().c_str());
+            syslog.messagef(LogLevel::FATAL, "p1 count - %s", ToString(p1.count()).c_str());
 
             // get entities runtime
             auto now = ent->cpu_runtime();
@@ -157,15 +171,23 @@ public:
             // get runtime before last iteration
             SchedulingEntity::EntityRuntime val;
             if (runtimes.try_get_value(ent, val)){
+                // syslog.messagef(LogLevel::DEBUG, "in map");
                 // in map
-
+                // syslog.messagef(LogLevel::DEBUG, "remove from runqueue - %s", ent->name().c_str());
                 
                 // if entity has ran over quantum
-                if (now - val > 2000000000) {
-                    sched_log.messagef(LogLevel::DEBUG, "AYO");
+                // syslog.messagef(LogLevel::FATAL, "runtime - %s", ToString(now).c_str());
+                if (now - val > 200000000) {
+                    syslog.messagef(LogLevel::FATAL, "time over");
+                    // sched_log.messagef(LogLevel::DEBUG, "AYO");
 
                     // remove from map
                     MultipleQueuePriorityScheduler::rm_from_map(ent);
+
+                    //remove from p1
+                    MultipleQueuePriorityScheduler::rm_from_p1(ent);
+
+
                     // MultipleQueuePriorityScheduler::add_to_map(ent, now);
 
                     // increment pointer
@@ -175,25 +197,27 @@ public:
                 } else {
 
                     //  if entity not exceeded quantum
-                    sched_log.messagef(LogLevel::DEBUG, "ELSEEEEEE");
-
+                    sched_log.messagef(LogLevel::DEBUG, "return");
+                     
                     // return entitys
                     return ent;
                 }
 
 
-
+                
             } else {
                 // not in map
 
                 // add entity to map
                 MultipleQueuePriorityScheduler::add_to_map(ent, now);
 
+                sched_log.messagef(LogLevel::DEBUG, "return");
                 // return entity
                 return ent;
             }
-
-
+           
+            // if (p1.count() == 0) {return NULL;}
+    
 
         }
         
@@ -230,7 +254,7 @@ public:
 
 
         // sched_log.messagef(LogLevel::DEBUG, "intersting");
-        
+        sched_log.messagef(LogLevel::DEBUG, "unhandled except");
         return NULL;
 
 

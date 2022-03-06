@@ -48,9 +48,10 @@ public:
 	{
 		UniqueIRQLock l;
         // if (entity.priority() == SchedulingEntityPriority::REALTIME){
-        //     sched_log.messagef(LogLevel::ERROR, "HELLOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO");
+        sched_log.messagef(LogLevel::ERROR, "HELLOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO");
         // }
 		runqueue.enqueue(&entity);
+        begin = true;
 	}
 
 	/**
@@ -185,13 +186,24 @@ public:
                     MultipleQueuePriorityScheduler::rm_from_map(ent);
 
                     //remove from p1
-                    MultipleQueuePriorityScheduler::rm_from_p1(ent);
+                    // MultipleQueuePriorityScheduler::rm_from_p1(ent);
+                    syslog.messagef(LogLevel::FATAL, "made modifications");
 
 
                     // MultipleQueuePriorityScheduler::add_to_map(ent, now);
 
                     // increment pointer
-                    q_pointer = (q_pointer + 1) % p1.count();
+                    if (p1.count() != 0) {
+                        q_pointer = (q_pointer + 1) % p1.count();
+                    } else {
+                        q_pointer = 0;
+                    }
+
+                    
+                    syslog.messagef(LogLevel::FATAL, "incremented pointer");
+
+                    
+                    return ent;
 
                     // begin loop again
                 } else {
@@ -254,7 +266,8 @@ public:
 
 
         // sched_log.messagef(LogLevel::DEBUG, "intersting");
-        sched_log.messagef(LogLevel::DEBUG, "unhandled except");
+        sched_log.messagef(LogLevel::DEBUG, "doing something with runqueue of size - %s", ToString(runqueue.count()).c_str());
+        sched_log.messagef(LogLevel::DEBUG, "and p1 size - %s", ToString(p1.count()).c_str());
         return NULL;
 
 

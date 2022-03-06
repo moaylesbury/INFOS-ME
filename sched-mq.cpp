@@ -159,7 +159,7 @@ public:
         
 
 
-        while (true && p1.count() > 0) {
+        while (true && !p1.empty()) {
 
             // get entity at pointer
             auto ent = MultipleQueuePriorityScheduler::get_at(q_pointer);
@@ -193,17 +193,21 @@ public:
                     // MultipleQueuePriorityScheduler::add_to_map(ent, now);
 
                     // increment pointer
-                    if (p1.count() != 0) {
+                    if (!p1.empty() && p1.count() != 1) {
                         q_pointer = (q_pointer + 1) % p1.count();
+                    } else if (p1.count() == 1) {
+                        syslog.messagef(LogLevel::FATAL, "ayoooooooo");
+                        return ent;
                     } else {
                         q_pointer = 0;
+                        return ent;
                     }
 
                     
-                    syslog.messagef(LogLevel::FATAL, "incremented pointer");
+                    // syslog.messagef(LogLevel::FATAL, "incremented pointer");
 
                     
-                    return ent;
+                    
 
                     // begin loop again
                 } else {

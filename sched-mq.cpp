@@ -300,6 +300,7 @@ public:
             if (p1.count() == 1) {return p1.first();}
 
             syslog.messagef(LogLevel::DEBUG, "p1 count - %s", ToString(p1.count()).c_str());
+            syslog.messagef(LogLevel::DEBUG, "rq count - %s", ToString(runqueue.count()).c_str());
             syslog.messagef(LogLevel::DEBUG, "q_pointer - %s", ToString(q_pointer).c_str());
             syslog.messagef(LogLevel::DEBUG, "map for runtimes - %s", ToString(runtimes.count()).c_str());
             
@@ -307,7 +308,7 @@ public:
             auto ent = MultipleQueuePriorityScheduler::get_at(q_pointer);
             auto now = ent->cpu_runtime();
 
-            syslog.messagef(LogLevel::FATAL, "priority level - %s", ToString(ent->priority()).c_str());
+            syslog.messagef(LogLevel::FATAL, "entity name - %s", ent->name().c_str());
 
             // get runtime before last iteration
             SchedulingEntity::EntityRuntime n;

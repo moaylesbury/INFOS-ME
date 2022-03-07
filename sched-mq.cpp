@@ -61,38 +61,27 @@ public:
 	void remove_from_runqueue(SchedulingEntity& entity) override
 	{
 		UniqueIRQLock l;
-        // sched_log.messagef(LogLevel::ERROR, "REMOVEEEEEEEEEEEEEEEEEEEEEEEE");
+        sched_log.messagef(LogLevel::ERROR, "REMOVEEEEEEEEEEEEEEEEEEEEEEEE");
         
         if (MultipleQueuePriorityScheduler::in_list(entity, p1)){
             p1.remove(&entity);
-            if (p1.empty()){
-                q_pointer = 0;
-            } else {
-                q_pointer = (q_pointer - 1) % p1.count();
-            }
         }
         if (MultipleQueuePriorityScheduler::in_list(entity, p2)){
             p2.remove(&entity);
-            if (p2.empty()){
-                q_pointer = 0;
-            } else {
-                q_pointer = (q_pointer - 1) % p2.count();
-            }
         }
         if (MultipleQueuePriorityScheduler::in_list(entity, p3)){
             p3.remove(&entity);
-            if (p3.empty()){
-                q_pointer = 0;
-            } else {
-                q_pointer = (q_pointer - 1) % p3.count();
-            }
         }
         if (MultipleQueuePriorityScheduler::in_list(entity, p4)){
             p4.remove(&entity);
-            if (p4.empty()){
+        }
+
+        if (MultipleQueuePriorityScheduler::in_list(entity, q)){
+            q.remove(&entity);
+            if (q.empty()){
                 q_pointer = 0;
             } else {
-                q_pointer = (q_pointer - 1) % p4.count();
+                q_pointer = (q_pointer - 1) % q.count();
             }
         }
 
@@ -195,7 +184,7 @@ public:
     SchedulingEntity* get_at(int ptr)
     {
         UniqueIRQLock l;
-        return p1.at(ptr);
+        return q.at(ptr);
     }
 
     void add_to_map(SchedulingEntity* entity, SchedulingEntity::EntityRuntime val) {
@@ -231,6 +220,88 @@ public:
         }
 
     }
+
+
+
+
+    void get_top_queue() {
+        UniqueIRQLock l;
+        if (!p1.empty()) {
+            transfer(1);
+            p1.clear();
+        }
+        else if (!p2.empty()) {
+            transfer(2);
+            p2.clear();
+        }
+        else if (!p3.empty()) {
+            sched_log.messagef(LogLevel::DEBUG, "yes");
+            transfer(3);
+            p3.clear();
+        }
+        else if (!p4.empty()) {
+            transfer(4);
+            p4.clear();
+        }
+    }
+
+    void transfer(int n){
+        UniqueIRQLock l;
+        sched_log.messagef(LogLevel::DEBUG, "ash %s", ToString(p3.count()).c_str());
+
+        if (n==1){
+            for (const auto& ent : p1) {
+                if (!MultipleQueuePriorityScheduler::in_list2(ent, q)){
+                    sched_log.messagef(LogLevel::DEBUG, "yes2");
+                    q.append(ent);
+                }
+            }
+        }
+        if (n==2){
+            for (const auto& ent : p2) {
+                if (!MultipleQueuePriorityScheduler::in_list2(ent, q)){
+                    sched_log.messagef(LogLevel::DEBUG, "yes2");
+                    q.append(ent);
+                }
+            }
+        }
+        if (n==3){
+            for (const auto& ent : p3) {
+                if (!MultipleQueuePriorityScheduler::in_list2(ent, q)){
+                    sched_log.messagef(LogLevel::DEBUG, "yes2");
+                    q.append(ent);
+                }
+            }
+        }
+        if (n==4){
+            for (const auto& ent : p4) {
+                if (!MultipleQueuePriorityScheduler::in_list2(ent, q)){
+                    sched_log.messagef(LogLevel::DEBUG, "yes2");
+                    q.append(ent);
+                }
+            }
+        }
+        
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
     /**
@@ -273,13 +344,15 @@ public:
             }
 
             begin = false;
+            get_top_queue();
         }
 
         // check for runnable entities that have changed state (previously not runnable)
-        if (runqueue.count() != p1.count()) {
+        if (runqueue.count() != q.count()) {
             for (const auto& entity : runqueue){
-                if (!MultipleQueuePriorityScheduler::in_list2(entity, p1) && entity->state() == 2){
-                    MultipleQueuePriorityScheduler::add_to_p1(entity);
+                if (!MultipleQueuePriorityScheduler::in_list2(entity, q) && entity->state() == 2){
+                    // MultipleQueuePriorityScheduler::add_to_p1(entity);
+                    begin = true;
                 }
             }
         }
@@ -289,79 +362,17 @@ public:
         // Round-Robin                           |
         // =======================================
 
-        // p1
-        while (!p1.empty()) {
-
-            if (p1.count() == 1) {return p1.first();}
-
-            syslog.messagef(LogLevel::DEBUG, "p1 count - %s", ToString(p1.count()).c_str());
-            syslog.messagef(LogLevel::DEBUG, "rq count - %s", ToString(runqueue.count()).c_str());
-            syslog.messagef(LogLevel::DEBUG, "q_pointer - %s", ToString(q_pointer).c_str());
-            syslog.messagef(LogLevel::DEBUG, "map for runtimes - %s", ToString(runtimes.count()).c_str());
-            
-            
-            auto ent = MultipleQueuePriorityScheduler::get_at(q_pointer);
-            auto now = ent->cpu_runtime();
-
-            syslog.messagef(LogLevel::FATAL, "entity name - %s", ent->name().c_str());
-
-            // get runtime before last iteration
-            SchedulingEntity::EntityRuntime n;
-            if (runtimes.try_get_value(ent, n)){
-                // syslog.messagef(LogLevel::DEBUG, "n value - %s", ToString(n).c_str());
-                syslog.messagef(LogLevel::DEBUG, "in map");
-                // in map
-                // if entity has ran over quantum
-
-                // if (now > 100000000 * n) {
-                SchedulingEntity::EntityRuntime hund_ms = 100000000; 
-                // if (MultipleQueuePriorityScheduler::runtime_exceeded(now, hund_ms, n)) { 
-                if (now > hund_ms){
-                    
-                    syslog.messagef(LogLevel::DEBUG, "A");
-                    syslog.messagef(LogLevel::FATAL, "time over");
-
-                    // update map n=number of quantums run for +1
-                    MultipleQueuePriorityScheduler::rm_from_map(ent);
-                    // MultipleQueuePriorityScheduler::add_to_map(ent, n+1);
-
-                    // increment pointer
-                    if (!p1.empty() && p1.count() != 1) {
-                        syslog.messagef(LogLevel::DEBUG, "B");
-                        q_pointer = (q_pointer + 1) % p1.count();
-                    } 
-
-
-                } else {
-                    //  if entity not exceeded quantum
-                    syslog.messagef(LogLevel::DEBUG, "C");
-                    return ent;
-                }
-
-
-                
-            } else {
-                // not in map
-
-                // add entity to map
-                n = 1;
-                MultipleQueuePriorityScheduler::add_to_map(ent, n);
-
-                // return entity
-                return ent;
-
-            }
-           
-            
-
-        }
         
-        // p2
-        while (!p2.empty()) {
+    // syslog.messagef(LogLevel::DEBUG, "p1 count - %s", ToString(p1.count()).c_str());
+    // syslog.messagef(LogLevel::DEBUG, "q count - %s", ToString(q.count()).c_str());
+    // syslog.messagef(LogLevel::DEBUG, "rq count - %s", ToString(runqueue.first()->state()).c_str());
+    // return NULL;
+        // q
+        while (!q.empty()) {
 
-            if (p2.count() == 1) {return p2.first();}
+            if (q.count() == 1) {return q.first();}
 
-            syslog.messagef(LogLevel::DEBUG, "p1 count - %s", ToString(p2.count()).c_str());
+            syslog.messagef(LogLevel::DEBUG, "p1 count - %s", ToString(q.count()).c_str());
             syslog.messagef(LogLevel::DEBUG, "rq count - %s", ToString(runqueue.count()).c_str());
             syslog.messagef(LogLevel::DEBUG, "q_pointer - %s", ToString(q_pointer).c_str());
             syslog.messagef(LogLevel::DEBUG, "map for runtimes - %s", ToString(runtimes.count()).c_str());
@@ -393,145 +404,14 @@ public:
                     // MultipleQueuePriorityScheduler::add_to_map(ent, n+1);
 
                     // increment pointer
-                    if (!p2.empty() && p2.count() != 1) {
+                    if (q.count() != 1) {
                         syslog.messagef(LogLevel::DEBUG, "B");
-                        q_pointer = (q_pointer + 1) % p2.count();
+                        q_pointer = (q_pointer + 1) % q.count();
                     } 
 
 
-                } else {
-                    //  if entity not exceeded quantum
-                    syslog.messagef(LogLevel::DEBUG, "C");
-                    return ent;
                 }
-
-
-                
-            } else {
-                // not in map
-
-                // add entity to map
-                n = 1;
-                MultipleQueuePriorityScheduler::add_to_map(ent, n);
-
-                // return entity
-                return ent;
-
-            }
-           
-            
-
-        }
-        // p3
-        while (!p3.empty()) {
-
-            if (p3.count() == 1) {return p3.first();}
-
-            syslog.messagef(LogLevel::DEBUG, "p1 count - %s", ToString(p3.count()).c_str());
-            syslog.messagef(LogLevel::DEBUG, "rq count - %s", ToString(runqueue.count()).c_str());
-            syslog.messagef(LogLevel::DEBUG, "q_pointer - %s", ToString(q_pointer).c_str());
-            syslog.messagef(LogLevel::DEBUG, "map for runtimes - %s", ToString(runtimes.count()).c_str());
-            
-            
-            auto ent = MultipleQueuePriorityScheduler::get_at(q_pointer);
-            auto now = ent->cpu_runtime();
-
-            syslog.messagef(LogLevel::FATAL, "entity name - %s", ent->name().c_str());
-
-            // get runtime before last iteration
-            SchedulingEntity::EntityRuntime n;
-            if (runtimes.try_get_value(ent, n)){
-                // syslog.messagef(LogLevel::DEBUG, "n value - %s", ToString(n).c_str());
-                syslog.messagef(LogLevel::DEBUG, "in map");
-                // in map
-                // if entity has ran over quantum
-
-                // if (now > 100000000 * n) {
-                SchedulingEntity::EntityRuntime hund_ms = 100000000; 
-                // if (MultipleQueuePriorityScheduler::runtime_exceeded(now, hund_ms, n)) { 
-                if (now > hund_ms){
-                    
-                    syslog.messagef(LogLevel::DEBUG, "A");
-                    syslog.messagef(LogLevel::FATAL, "time over");
-
-                    // update map n=number of quantums run for +1
-                    MultipleQueuePriorityScheduler::rm_from_map(ent);
-                    // MultipleQueuePriorityScheduler::add_to_map(ent, n+1);
-
-                    // increment pointer
-                    if (!p3.empty() && p3.count() != 1) {
-                        syslog.messagef(LogLevel::DEBUG, "B");
-                        q_pointer = (q_pointer + 1) % p3.count();
-                    } 
-
-
-                } else {
-                    //  if entity not exceeded quantum
-                    syslog.messagef(LogLevel::DEBUG, "C");
-                    return ent;
-                }
-
-
-                
-            } else {
-                // not in map
-
-                // add entity to map
-                n = 1;
-                MultipleQueuePriorityScheduler::add_to_map(ent, n);
-
-                // return entity
-                return ent;
-
-            }
-           
-            
-
-        }
-        // p4
-        while (!p4.empty()) {
-
-            if (p4.count() == 1) {return p4.first();}
-
-            syslog.messagef(LogLevel::DEBUG, "p1 count - %s", ToString(p4.count()).c_str());
-            syslog.messagef(LogLevel::DEBUG, "rq count - %s", ToString(runqueue.count()).c_str());
-            syslog.messagef(LogLevel::DEBUG, "q_pointer - %s", ToString(q_pointer).c_str());
-            syslog.messagef(LogLevel::DEBUG, "map for runtimes - %s", ToString(runtimes.count()).c_str());
-            
-            
-            auto ent = MultipleQueuePriorityScheduler::get_at(q_pointer);
-            auto now = ent->cpu_runtime();
-
-            syslog.messagef(LogLevel::FATAL, "entity name - %s", ent->name().c_str());
-
-            // get runtime before last iteration
-            SchedulingEntity::EntityRuntime n;
-            if (runtimes.try_get_value(ent, n)){
-                // syslog.messagef(LogLevel::DEBUG, "n value - %s", ToString(n).c_str());
-                syslog.messagef(LogLevel::DEBUG, "in map");
-                // in map
-                // if entity has ran over quantum
-
-                // if (now > 100000000 * n) {
-                SchedulingEntity::EntityRuntime hund_ms = 100000000; 
-                // if (MultipleQueuePriorityScheduler::runtime_exceeded(now, hund_ms, n)) { 
-                if (now > hund_ms){
-                    
-                    syslog.messagef(LogLevel::DEBUG, "A");
-                    syslog.messagef(LogLevel::FATAL, "time over");
-
-                    // update map n=number of quantums run for +1
-                    MultipleQueuePriorityScheduler::rm_from_map(ent);
-                    // MultipleQueuePriorityScheduler::add_to_map(ent, n+1);
-
-                    // increment pointer
-                    if (!p4.empty() && p4.count() != 1) {
-                        syslog.messagef(LogLevel::DEBUG, "B");
-                        q_pointer = (q_pointer + 1) % p4.count();
-                    } 
-
-
-                } else {
+                 else {
                     //  if entity not exceeded quantum
                     syslog.messagef(LogLevel::DEBUG, "C");
                     return ent;
@@ -558,7 +438,7 @@ public:
 
 
 
-
+        
 
        
 
@@ -589,7 +469,13 @@ public:
         // sched_log.messagef(LogLevel::DEBUG, "intersting");
         // sched_log.messagef(LogLevel::DEBUG, "doing something with runqueue of size - %s", ToString(runqueue.count()).c_str());
         // sched_log.messagef(LogLevel::DEBUG, "and p1 size - %s", ToString(p1.count()).c_str());
-        return NULL;
+        
+        if (q.empty() && p1.empty() && p2.empty() && p3.empty() && p4.empty()){
+            return NULL;
+        } else {
+            begin = true;
+        }
+        
 
 
 
@@ -637,6 +523,9 @@ private:
     List<SchedulingEntity *> p3;
     List<SchedulingEntity *> p4;
     // lowest prio
+    
+    // holder
+    List<SchedulingEntity *> q;
 };
 
 /* --- DO NOT CHANGE ANYTHING BELOW THIS LINE --- */

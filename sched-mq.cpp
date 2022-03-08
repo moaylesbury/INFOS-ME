@@ -32,12 +32,7 @@ public:
      */
     void init()
     {
-        sched_log.messagef(LogLevel::DEBUG, "INSTANCE CREATED");
         // TODO: Implement me!
-        // for (const auto& entity : runqueue) {
-        //     sched_log.messagef(LogLevel::ERROR, "iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii");
-        // }
-        
     }
 
     /**
@@ -47,10 +42,8 @@ public:
 	void add_to_runqueue(SchedulingEntity& entity) override
 	{
 		UniqueIRQLock l;
-        // if (entity.priority() == SchedulingEntityPriority::REALTIME){
-        // sched_log.messagef(LogLevel::ERROR, "HELLOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO");
-        // }
 		runqueue.enqueue(&entity);
+        // initiates current queue modification state
         begin = true;
 	}
 
@@ -61,8 +54,8 @@ public:
 	void remove_from_runqueue(SchedulingEntity& entity) override
 	{
 		UniqueIRQLock l;
-        // sched_log.messagef(LogLevel::ERROR, "REMOVEEEEEEEEEEEEEEEEEEEEEEEE");
-        
+
+        // removes from any of the priority queues if present
         if (MultipleQueuePriorityScheduler::in_list(entity, p1)){
             p1.remove(&entity);
         }
@@ -76,6 +69,7 @@ public:
             p4.remove(&entity);
         }
 
+        // remove from current queue if present
         if (MultipleQueuePriorityScheduler::in_list(entity, q)){
             q.remove(&entity);
             if (q.empty()){
@@ -85,26 +79,18 @@ public:
             }
         }
 
-        // if (q_pointer >= p1.count()) {
-        //     q_pointer--;
-        // }
-
-        // decrement pointer
-
-
-        
-
-        // sched_log.messagef(LogLevel::ERROR, "rmvd");
-		
+        // remove from runtimes map if present
         if (runtimes.contains_key(&entity)){
-            // sched_log.messagef(LogLevel::ERROR, "IN MAPPPPPPPPPPPPPPPPPPPPPPPP");
-            // runtimes.remove(&entity);
             MultipleQueuePriorityScheduler::rm_from_map(&entity);
         }
+
+        // remove from runqueue
 		runqueue.remove(&entity);
 	}
 
-    bool in_list(SchedulingEntity& entity, List<SchedulingEntity *> lst){
+    bool in_list(SchedulingEntity& entity, List<SchedulingEntity *> lst) {
+        // takes an entity& and lst
+        // returns true if entity in lst, else false
         for (auto ent : lst){
             if (ent == &entity){
                 return true;
@@ -113,7 +99,9 @@ public:
         return false;
     }
 
-    bool in_list2(SchedulingEntity* entity, List<SchedulingEntity *> lst){
+    bool in_list2(SchedulingEntity* entity, List<SchedulingEntity *> lst) {
+        // takes an entity* and lst
+        // returns true if entity in lst, else false
         for (auto ent : lst){
             if (ent == entity){
                 return true;
@@ -122,7 +110,9 @@ public:
         return false;
     }
 
-    void add_to_list(SchedulingEntity * entity, int n){
+    void add_to_list(SchedulingEntity* entity, int n) {
+        // takes entity and integer n
+        // adds entity to priority queue n if not already in
         if (n == 1) {
             if (!MultipleQueuePriorityScheduler::in_list2(entity, p1)){
                 UniqueIRQLock l;
@@ -150,6 +140,8 @@ public:
     }
 
     void rm_from_list(SchedulingEntity* entity, int n) {
+        // takes entity and integer n
+        // removes entity from priority queue n if present
         if (n == 1) {
             if (!MultipleQueuePriorityScheduler::in_list2(entity, p1)){
                 UniqueIRQLock l;
@@ -176,26 +168,29 @@ public:
         }
     }
 
-    SchedulingEntity* get_at(int ptr)
-    {
+    SchedulingEntity* get_at(int ptr) {
+        // takes int ptr
+        // returns entity at index ptr from current queue
         UniqueIRQLock l;
-        return q.at(ptr);
+        if (ptr < q.count()){
+            return q.at(ptr);
+        }
     }
 
     void add_to_map(SchedulingEntity* entity, int val) {
+        // adds entity with value val to runtimes  map
         UniqueIRQLock l;
         runtimes.add(entity, val);
     }
 
     void rm_from_map(SchedulingEntity* entity) {
-        // syslog.messagef(LogLevel::DEBUG, "removing from map");
+        // removes entity from runtimes map
         UniqueIRQLock l;
 
-
-
+        // create temp queue
         Map<SchedulingEntity *, int> temp;
 
-        // move all not equal to entity in runtimes to temp
+        // add all entities not equal to entity in runtimes to temp
         for (const auto& node : runtimes) {
             if (node.key != entity){
                 temp.add(node.key, node.value);
@@ -205,26 +200,36 @@ public:
         // clear runtimes
         runtimes.clear();
 
-        // move all in temp to runtimes
+        // add all entities from temp to runtimes
         for (const auto& node : temp) {
             runtimes.add(node.key, node.value);
         }
 
+        // clear temp
+        temp.clear();
     }
 
 
 
 
-    void get_top_queue() {
+    void set_current_queue() {
+        // finds highest priority occupied queue
+        // transfer all entities from priority queue to current queue to be scheduled
 
+        // if no occupied priority queues, return
         if (p1.empty() && p2.empty() && p3.empty() && p4.empty()) {
             return;
         }
 
         UniqueIRQLock l;
+
+        // if priority queue is not empty
         if (!p1.empty()) {
+            // transfer all entities from priority queue 1 to current queue q
             transfer(1);
+            // clear priority queue 1
             p1.clear();
+            // set quantum
             quantum = 2;
         }
         else if (!p2.empty()) {
@@ -233,7 +238,6 @@ public:
             quantum = 4;
         }
         else if (!p3.empty()) {
-            // sched_log.messagef(LogLevel::DEBUG, "yes");
             transfer(3);
             p3.clear();
             quantum = 8;
@@ -246,13 +250,12 @@ public:
     }
 
     void transfer(int n){
+        // all entities from priority queue n are added to current queue q
         UniqueIRQLock l;
-        sched_log.messagef(LogLevel::DEBUG, "ash %s", ToString(p3.count()).c_str());
 
         if (n==1){
             for (const auto& ent : p1) {
                 if (!MultipleQueuePriorityScheduler::in_list2(ent, q)){
-                    // sched_log.messagef(LogLevel::DEBUG, "yes2");
                     q.append(ent);
                 }
             }
@@ -260,7 +263,6 @@ public:
         if (n==2){
             for (const auto& ent : p2) {
                 if (!MultipleQueuePriorityScheduler::in_list2(ent, q)){
-                    // sched_log.messagef(LogLevel::DEBUG, "yes2");
                     q.append(ent);
                 }
             }
@@ -268,7 +270,6 @@ public:
         if (n==3){
             for (const auto& ent : p3) {
                 if (!MultipleQueuePriorityScheduler::in_list2(ent, q)){
-                    // sched_log.messagef(LogLevel::DEBUG, "yes2");
                     q.append(ent);
                 }
             }
@@ -276,7 +277,6 @@ public:
         if (n==4){
             for (const auto& ent : p4) {
                 if (!MultipleQueuePriorityScheduler::in_list2(ent, q)){
-                    // sched_log.messagef(LogLevel::DEBUG, "yes2");
                     q.append(ent);
                 }
             }
@@ -292,19 +292,13 @@ public:
      */
     SchedulingEntity *pick_next_entity() override
     {
-       
-
-
+        // current queue modification state
         if (begin) {
-            sched_log.messagef(LogLevel::DEBUG, "begin");
-
+            // assigns all entities in runqueue to a priority queue based on priority
             for (const auto& entity : runqueue) {
 
-                // syslog.messagef(LogLevel::FATAL, "runqueue count - %s", ToString(runqueue.count()).c_str());
-                // syslog.messagef(LogLevel::FATAL, "priority level - %s", ToString(entity->priority()).c_str());
-
+                // only if runnable
                 if (entity->state() == 2) {
-                    // syslog.messagef(LogLevel::FATAL, "state - %s", ToString(entity->state()).c_str());
 
                     if (entity->priority() == 0){
                         MultipleQueuePriorityScheduler::add_to_list(entity, 1);
@@ -324,219 +318,111 @@ public:
                 
             }
 
+            // set current queue q
+            set_current_queue();
+            // end current queue modification
             begin = false;
-            get_top_queue();
         }
 
         // check for runnable entities that have changed state (previously not runnable)
         if (runqueue.count() != q.count()) {
             for (const auto& entity : runqueue){
                 if (!MultipleQueuePriorityScheduler::in_list2(entity, q) && entity->state() == 2){
-                    // MultipleQueuePriorityScheduler::add_to_p1(entity);
+                    // initiate current queue modification
                     begin = true;
                 }
             }
         }
 
-
         // =======================================
         // Round-Robin                           |
         // =======================================
 
-        
-    // syslog.messagef(LogLevel::DEBUG, "p1 count - %s", ToString(p1.count()).c_str());
-    // syslog.messagef(LogLevel::DEBUG, "q count - %s", ToString(q.count()).c_str());
-    // syslog.messagef(LogLevel::DEBUG, "rq count - %s", ToString(runqueue.first()->state()).c_str());
-    // return NULL;
-        // q
+        // while current queue q is occupied
         while (!q.empty()) {
-
+            
+            // if only one entity is present, return that entity
             if (q.count() == 1) {return q.first();}
 
-            
-
-            // syslog.messagef(LogLevel::DEBUG, "p1 count - %s", ToString(q.count()).c_str());
-            // syslog.messagef(LogLevel::DEBUG, "rq count - %s", ToString(runqueue.count()).c_str());
-            // syslog.messagef(LogLevel::DEBUG, "q_pointer - %s", ToString(q_pointer).c_str());
-            // syslog.messagef(LogLevel::DEBUG, "map for runtimes - %s", ToString(runtimes.count()).c_str());
-            
-            
+            // get current entity
             auto ent = MultipleQueuePriorityScheduler::get_at(q_pointer);
-            auto now = ent->cpu_runtime();
 
-            syslog.messagef(LogLevel::DEBUG, "PRIORITY - %s", ToString(ent->priority()).c_str());
+            // get number of quantums executed for if present in runtimes map
+            int iters;
+            if (runtimes.try_get_value(ent, iters)){
+                // entity present in map
 
-            // syslog.messagef(LogLevel::FATAL, "entity name - %s", ent->name().c_str());
-
-            // get runtime before last iteration
-            int quantums;
-            if (runtimes.try_get_value(ent, quantums)){
-                // syslog.messagef(LogLevel::DEBUG, "n value - %s", ToString(n).c_str());
-                // syslog.messagef(LogLevel::DEBUG, "in map");
-                // in map
-                // if entity has ran over quantum
-
-                // if (now > 100000000 * n) {
-                SchedulingEntity::EntityRuntime hund_ms = 100000000; 
-                // if (MultipleQueuePriorityScheduler::runtime_exceeded(now, hund_ms, n)) { 
-                if (quantums >= quantum){
+                // if number of iterations exceeds the quantum
+                if (iters >= quantum){
                     
-                    // syslog.messagef(LogLevel::DEBUG, "A");
-                    // syslog.messagef(LogLevel::FATAL, "time over");
-
-                    // update map n=number of quantums run for +1
+                    // remove entity from runtime map
                     MultipleQueuePriorityScheduler::rm_from_map(ent);
-                    // MultipleQueuePriorityScheduler::add_to_map(ent, n+1);
-
-                    // increment pointer
+        
+                    // increment current queue pointer if queue has more than one entity
                     if (q.count() != 1) {
-                        // syslog.messagef(LogLevel::DEBUG, "B");
                         q_pointer = (q_pointer + 1) % q.count();
                     } 
 
 
                 }
                  else {
-                    //  if entity not exceeded quantum
-                    // syslog.messagef(LogLevel::DEBUG, "C");
+                    // if quantum is not exceeded, increment iters in runtime map
                     MultipleQueuePriorityScheduler::rm_from_map(ent);
-                    MultipleQueuePriorityScheduler::add_to_map(ent, quantums + 1);
+                    MultipleQueuePriorityScheduler::add_to_map(ent, iters + 1);
+                    // return entity as quantum not exceeded
                     return ent;
                 }
 
-
-                
             } else {
-                // not in map
+                // if entity not in runtimes map
 
-                // add entity to map
-                quantums = 1;
-                MultipleQueuePriorityScheduler::add_to_map(ent, quantums);
+                // add entity to map with iters=1, as this is the entities first execution iteration
+                iters = 1;
+                MultipleQueuePriorityScheduler::add_to_map(ent, iters);
 
-                // return entity
+                // return entity 
                 return ent;
 
-            }
-           
-            
+            }           
 
         }
 
-
-
-
-        
-
-       
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        // sched_log.messagef(LogLevel::DEBUG, "intersting");
-        // sched_log.messagef(LogLevel::DEBUG, "doing something with runqueue of size - %s", ToString(runqueue.count()).c_str());
-        // sched_log.messagef(LogLevel::DEBUG, "and p1 size - %s", ToString(p1.count()).c_str());
-        
+        // if all queues are empty, return null
         if (q.empty() && p1.empty() && p2.empty() && p3.empty() && p4.empty()){
             return NULL;
         } else {
+            // otherwise begin current queue modification state
             begin = true;
         }
         
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-				
-        
     }
+
 private:
+    // runqueue
     List<SchedulingEntity *> runqueue;
+
+    // if true, begin current queue modification state
     bool begin = true;
+    // points to scheduled entity in current queue
     int q_pointer = 0;
+    // number of executions entity can perform, dependent on priority; values in {2,4,8,16}; initiated to -1
     int quantum = -1;
 
+    // runtimes map
+    // key: entity
+    // val: number of iterations executed for; values range from 0-quantum 
     Map<SchedulingEntity *, int> runtimes;
 
-    // highest prio
-    List<SchedulingEntity *> p1;
-    List<SchedulingEntity *> p2;
-    List<SchedulingEntity *> p3;
-    List<SchedulingEntity *> p4;
-    // lowest prio
-    
-    // holder
+    // priority queues, where p1 is highest priority and p4 is lowest
+    List<SchedulingEntity *> p1; // REALTIME
+    List<SchedulingEntity *> p2; // INTERACTIVE
+    List<SchedulingEntity *> p3; // NORMAL
+    List<SchedulingEntity *> p4; // DAEMON
+      
+    // current queue, the queue for scheduling of highest priority entities
     List<SchedulingEntity *> q;
 };
 
 /* --- DO NOT CHANGE ANYTHING BELOW THIS LINE --- */
 
 RegisterScheduler(MultipleQueuePriorityScheduler);
-
-
-
-
-
-
-
-
-
-
-// hi future michael
-
-
-// before you left you were trying to add increments of quantums as map values
-
-// this would then be used to make sure that the cpu is shared fairly
-
-
-// clean up
-
-// add different time qunatums in map for each queue

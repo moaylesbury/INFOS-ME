@@ -23,7 +23,8 @@ const char *cat(const char *lhs, const char *rhs)
         printf("%d", i);
 		buffer[i++] = *a++;
 	}
-	buffer[i] = 0;
+	buffer[i] = *"/";
+  i++;
 
 	if (*a) a++;
 
@@ -50,9 +51,9 @@ const char *cat(const char *lhs, const char *rhs)
 
 int recurse_dir(const char* dir_name) {
 
-  const char *test = cat("hello", "world");
-  printf("in rd %s \n", test);
-  return 0;
+//   const char *test = cat("hello", "world");
+//   printf("in rd %s \n", test);
+  // return 0;
   HDIR dir = opendir(dir_name, 0);
 
   // if (is_error(dir)) {
@@ -66,20 +67,82 @@ int recurse_dir(const char* dir_name) {
     while (readdir(dir, &de)) {
         // printf("%s (%u bytes) \n", de.name, de.size);
 
-        const char* new_dir = cat(dir_name, de.name);
-        printf("new name %s\n", new_dir);
+        // const char* new_dir = cat(dir_name, de.name);
+
+
+
+
+
+
+
+
+
+
+
+
+
+        const char *a = dir_name;
+	    const char *b = de.name;
+
+
+	    char buffer[strlen(a) + strlen(b)];
+
+	    int i = 0;
+	    while (*a && *a != ' ') {
+		    buffer[i++] = *a++;
+	    }
+	    buffer[i] = *"/";
+        i++;
+
+	    if (*a) a++;
+
+
+
+
+	    while (*b && *b != ' ') {
+		    buffer[i++] = *b++;
+	    }
+	    buffer[i] = 0;
+
+	    if (*b) b++;
+
+
+        const char* new_dir = buffer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+        printf("%s\n", new_dir);
         HDIR dir2 = opendir(new_dir, 0);
-        printf("%s\n", de.name);
+        // printf("%s\n", de.name);
         if (!is_error(dir2)){
-            printf("is a directory");
+            // printf("d\n");
             is_dir = true;
         } else {
-            printf("not a directory");
+            // printf("nd\n");
         }
 
-        // if (is_dir) {
-        //     recurse_dir(new_dir);
-        // }
+        if (is_dir) {
+            recurse_dir(new_dir);
+        }
         // struct dirent de2;
         // // printf("the new name is %s\n", new_name);
         // while (readdir(dir2, &de2)) {

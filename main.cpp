@@ -145,8 +145,8 @@ int recurse_dir(const char* dir_name, int level) {
 
 
 
-
 				print(de.name, level);
+
         HDIR dir2 = opendir(new_dir, 0);
         // printf("%s\n", de.name);
         if (!is_error(dir2)){
@@ -189,7 +189,45 @@ int main(const char *cmdline)
         // printf("directory: /usr \n");
         input = "/usr";
     } else {
-        printf("non-null, we have - %s", input);
+        printf("non-null, we have - %s\n", input);
+				bool regex = false;
+				while (*input) {
+
+					if (*input++ == *" "){
+						if (*input++ == *"-" && *input++ == *"P"){
+							//break out as regex is true
+							input++;
+							regex=true;
+							break;
+						}
+					}
+
+	    	}
+				// so we now have the regex pattern
+				printf("this is the regex pattern %s\n", input);
+				// what we need is the location (if specified)
+
+				// if (regex) {
+				// 	// input should be at regex begin
+				// 	// printf("regex length? (%d)", strlen(input));
+				// 	char buffer[strlen(input)];
+				//
+				// 	// loop over the remainder of the input, the regex
+				// 	int i=0;
+				// 	while(*input && *input != ' ') {
+				// 		buffer[i++] == *input++;
+				// 	}
+				// 	buffer[i] = 0;
+				//
+				// 	if(*input) input++;
+				//
+				// 	const char* regex = buffer;
+				//
+				// 	printf("this is crazy %s", regex);
+				// }
+
+
+
     }
 
     // now to open the input directory

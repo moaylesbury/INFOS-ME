@@ -189,20 +189,47 @@ int main(const char *cmdline)
         // printf("directory: /usr \n");
         input = "/usr";
     } else {
-        printf("non-null, we have - %s\n", input);
+        // printf("non-null, we have - %s\n", input);
+
 				bool regex = false;
+				int dir_end_pos = 0;
+
+
 				while (*input) {
 
+					dir_end_pos++;
+
 					if (*input++ == *" "){
+
+
 						if (*input++ == *"-" && *input++ == *"P"){
 							//break out as regex is true
+							dir_end_pos+2;
+
+							// parse_dir[dir_end_pos] = 0;
+
 							input++;
+							// printf("helloooo %s\n", parse_dir);
 							regex=true;
 							break;
 						}
 					}
 
 	    	}
+
+
+				char buffer[dir_end_pos];
+				const char* parse_dir = cmdline;
+
+				for (unsigned int i=0; i<dir_end_pos; i++) {
+					buffer[i] = *parse_dir++;
+				}
+				buffer[dir_end_pos] = 0;
+
+				parse_dir = buffer;
+
+				printf("this is the moment %s\n", parse_dir);
+
 				// so we now have the regex pattern
 				printf("this is the regex pattern %s\n", input);
 				// what we need is the location (if specified)

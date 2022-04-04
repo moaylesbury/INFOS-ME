@@ -181,13 +181,14 @@ int main(const char *cmdline)
 {
     // TODO: Implement me!
     const char* input = cmdline;
+		const char* dir_name = cmdline;
 
 
     // default is no input directory, which just prints the default location (/usr)
     if (!input || strlen(input) == 0) {
         printf("case: default \n");
         // printf("directory: /usr \n");
-        input = "/usr";
+        dir_name = "/usr";
     } else {
         // printf("non-null, we have - %s\n", input);
 
@@ -219,41 +220,18 @@ int main(const char *cmdline)
 
 
 				char buffer[dir_end_pos];
-				const char* parse_dir = cmdline;
+				// const char* parse_dir = cmdline;
 
 				for (unsigned int i=0; i<dir_end_pos; i++) {
-					buffer[i] = *parse_dir++;
+					buffer[i] = *dir_name++;
 				}
 				buffer[dir_end_pos] = 0;
 
-				parse_dir = buffer;
+				dir_name = buffer;
 
-				printf("this is the moment %s\n", parse_dir);
+				printf("this is the dir %s\n", dir_name);
 
-				// so we now have the regex pattern
 				printf("this is the regex pattern %s\n", input);
-				// what we need is the location (if specified)
-
-				// if (regex) {
-				// 	// input should be at regex begin
-				// 	// printf("regex length? (%d)", strlen(input));
-				// 	char buffer[strlen(input)];
-				//
-				// 	// loop over the remainder of the input, the regex
-				// 	int i=0;
-				// 	while(*input && *input != ' ') {
-				// 		buffer[i++] == *input++;
-				// 	}
-				// 	buffer[i] = 0;
-				//
-				// 	if(*input) input++;
-				//
-				// 	const char* regex = buffer;
-				//
-				// 	printf("this is crazy %s", regex);
-				// }
-
-
 
     }
 
@@ -265,7 +243,7 @@ int main(const char *cmdline)
     // printf("%s\n", cat("hello", "world"));
     // const char *test = cat("hello", "world");
     // printf("in main %s \n", test);
-    recurse_dir(input, 0);
+    recurse_dir(dir_name, 0);
 
 
 
